@@ -18,7 +18,16 @@ class TypeSpeedApp():
         main_frame = ctk.CTkFrame(master=app, border_width=1)
         main_frame.pack(expand=True, fill="both", padx=20, pady=20)
 
-        self.sample_text = open("SampleTextForTS.txt", "r").read().split("\n")
+        # Try to load sample text, or use default text if file is not found
+        try:
+            self.sample_text = open("SampleTextForTS.txt", "r").read().split("\n")
+        except FileNotFoundError:
+            self.sample_text = [
+                "The quick brown fox jumps over the lazy dog.",
+                "Programming is a skill best acquired by practice and example.",
+                "Coding is like poetry should be short and concise.",
+                "The best error message is the one that never shows up."
+            ]
 
         frame_4_text = ctk.CTkFrame(master=main_frame, fg_color="#1F6AA5", height=30)
         frame_4_text.pack(fill="x", pady=10, padx=10)
@@ -59,62 +68,56 @@ class TypeSpeedApp():
         self.high_scores = {"CPS": 0, "CPM": 0, "WPS": 0, "WPM": 0}
 
         self.is_running = False
-        self.counter = 0
+        self.counter = 0 
 
         app.mainloop()
 
     def high_score(self, cps, cpm, wps, wpm):
-        self.high_scores["CPS"] = max(self.high_scores["CPS"], cps)
-        self.high_scores["CPM"] = max(self.high_scores["CPM"], cpm)
-        self.high_scores["WPS"] = max(self.high_scores["WPS"], wps)
-        self.high_scores["WPM"] = max(self.high_scores["WPM"], wpm)
+            self.high_scores["CPS"] = max(self.high_scores["CPS"], cps)
+            self.high_scores["CPM"] = max(self.high_scores["CPM"], cpm)
+            self.high_scores["WPS"] = max(self.high_scores["WPS"], wps)
+            self.high_scores["WPM"] = max(self.high_scores["WPM"], wpm)
 
-        self.max_stats.configure(text=f"Highest Score: CPS    : {self.high_scores['CPS']:.2f}  |  "
-                                      f"CPM    : {self.high_scores['CPM']:.2f}  |  "
-                                      f"WPS   : {self.high_scores['WPS']:.2f}  |  "
-                                      f"WPM   : {self.high_scores['WPM']:.2f}")
+            # Schedule UI update on the main thread
+            self.max_stats.after(0, lambda: self.max_stats.configure(
+                text=f"Highest Score: CPS    : {self.high_scores['CPS']:.2f}  |  "
+                    f"CPM    : {self.high_scores['CPM']:.2f}  |  "
+                    f"WPS   : {self.high_scores['WPS']:.2f}  |  "
+                    f"WPM   : {self.high_scores['WPM']:.2f}")
+            )
 
     def time_stamp(self):
+        # Use high-precision timer for accurate measurement
         while self.is_running:
             time.sleep(0.1)
+            self.counter += 0.1
 
-            if not self.is_running:
-                return
-
-            typed_text = self.user_input.get()
-            
-            if self.counter == 0: 
-                self.counter = 0.1  
-            else:
-                self.counter += 0.1
-
-            cps = len(typed_text) / self.counter
+            cps = len(self.user_input.get()) / self.counter
             cpm = cps * 60
-            wps = len(typed_text.split()) / self.counter
+
+            wps = len(self.user_input.get().split(" ")) / self.counter
             wpm = wps * 60
 
-            self.type_stats.after(0, lambda: self.type_stats.configure(
-                text=f"Speed -\nCPS     : {cps:.2f}\nCPM    : {cpm:.2f}\nWPS  : {wps:.2f}\nWPM  :  {wpm:.2f}"
-            ))
+            self.type_stats.configure(text=f"Speed -\nCPS     : {cps:.2f}\nCPM    : {cpm:.2f}\nWPS  : {wps:.2f}\nWPM  :  {wpm:.2f}")
+
+            typed_text = self.user_input.get()
 
             if typed_text.strip() == self.text_label.cget("text").strip():
                 self.is_running = False
-                self.user_input.configure(text_color="lightgreen")
-
+                self.user_input.after(0, lambda: self.user_input.configure(text_color="lightgreen"))
                 self.high_score(cps, cpm, wps, wpm)
 
 
     def start(self, event):
-        if not self.is_running and event.keycode not in [8, 16, 17, 18, 32]:  # Ignore backspace, shift, ctrl, alt, space
+        if not self.is_running and event.keycode not in [8, 16, 17, 18, 32]:
             self.is_running = True
-            self.counter = 0  # Reset counter for new attempt
             t = threading.Thread(target=self.time_stamp)
             t.start()
 
+        # Check typing accuracy
         targeted_text = self.text_label.cget("text")
-
-        # Validate user input
         typed_text = self.user_input.get()
+        
         if typed_text and typed_text != targeted_text[:len(typed_text)]:
             self.user_input.configure(text_color="red")
         else:
@@ -122,13 +125,15 @@ class TypeSpeedApp():
 
     def reset(self):
         self.is_running = False
-        self.counter = 0  # Reset counter to avoid incorrect timing
-        self.type_stats.configure(text="CPS     : 0.00\nCPM    : 0.00\nWPS    : 0.00\nWPM   : 0.00")
-        self.text_label.configure(text=random.choice(self.sample_text))
-        self.user_input.delete(0, ctk.END)
-        self.progress_bar.set(0)  # Reset progress bar
 
+        self.type_stats.configure(text="CPS     : 0.00\nCPM    : 0.00\nWPS    : 0.00\nWPM   : 0.00")
+        self.user_input.delete(0, ctk.END)
+        self.user_input.configure(text_color="white")  
+        self.text_label.configure(text=random.choice(self.sample_text))
+        self.progress_bar.set(0)  
+    
     def update_progress(self, *args):
+        # Update progress bar based on correctly typed characters
         targeted_text = self.text_label.cget("text")
         typed_text = self.typed_text.get()
 
@@ -137,7 +142,7 @@ class TypeSpeedApp():
             if i < len(targeted_text) and typed_text[i] == targeted_text[i]:
                 correct_length += 1
             else:
-                break  # Stop at first incorrect character
+                break
 
         total_length = len(targeted_text)
         self.progress_bar.set(correct_length / total_length if total_length else 0)
